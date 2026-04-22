@@ -1,0 +1,28 @@
+# User-local Claude config
+.claude/
+
+# Compression backups (created by /tokenizer-compress)
+*.original.md
+
+# Fingerprint cache (regenerated via /tokenizer-fingerprint)
+.tokenizer/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs + tmp
+*.log
+tmp/
+temp/

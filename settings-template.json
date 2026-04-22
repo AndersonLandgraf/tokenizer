@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "command": "node ./hooks/tokenizer-activate.js",
+        "description": "tokenizer: activate terse mode on session start"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "command": "node ./hooks/tokenizer-tracker.js",
+        "description": "tokenizer: track mode + per-turn reinforcement"
+      }
+    ]
+  }
+}

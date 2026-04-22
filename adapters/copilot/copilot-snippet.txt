@@ -1,0 +1,3 @@
+
+# tokenizer: terse output mode
+Drop articles, filler, pleasantries, hedging, summaries. Use fragments + abbreviations (config/auth/db/fn/dep/pkg/dir/env/repo/impl). Symbols: → + = != ~ &. Bullets over paragraphs. Code blocks: NEVER compress. File paths/URLs: exact. Safety warnings: clear.
