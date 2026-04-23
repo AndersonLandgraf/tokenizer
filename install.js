@@ -180,7 +180,8 @@ function uninstallGlobal() {
 
 const AGENT_DETECTORS = {
   claude: ['.claude', 'CLAUDE.md'],
-  copilot: ['.github/copilot-instructions.md', '.github/copilot'],
+  // 'github' covers any .github/*.md agent instructions file (agents.md, AGENTS.md, copilot-instructions.md, etc.)
+  github: ['.github'],
 };
 
 function detectAgents(projectDir) {
@@ -206,32 +207,26 @@ function installClaudeProject(projectDir) {
   return true;
 }
 
-function installCopilotProject(projectDir) {
-  const dst = path.join(projectDir, '.github', 'copilot-instructions.md');
-  const snippetPath = path.join(TOKENIZER_ROOT, 'adapters', 'copilot', 'copilot-snippet.txt');
-  const snippet = fs.readFileSync(snippetPath, 'utf8');
-
-  if (fs.existsSync(dst)) {
-    const existing = fs.readFileSync(dst, 'utf8');
-    if (existing.includes('tokenizer: terse output mode')) {
-      console.log(`  [SKIP] Already installed in .github/copilot-instructions.md`);
-      return true;
-    }
-    fs.appendFileSync(dst, '\n' + snippet);
-    console.log(`  [OK] Appended to .github/copilot-instructions.md`);
+function installGithubProject(projectDir) {
+  const { wireTersePrefix, detectGithubAgentFile } = require('./core/integrations');
+  const result = wireTersePrefix(projectDir);
+  const rel = path.relative(projectDir, result.path);
+  if (result.status === 'updated') {
+    console.log(`  [SKIP] Already installed in ${rel} (updated prefix)`);
   } else {
-    const dir = path.dirname(dst);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(dst, snippet.trim() + '\n');
-    console.log(`  [OK] Created .github/copilot-instructions.md`);
+    console.log(`  [OK] Terse prefix → ${rel} (${result.status})`);
   }
   return true;
 }
 
+// backwards-compat alias
+const installCopilotProject = installGithubProject;
+
 function installAdapter(agent, projectDir) {
   switch (agent) {
     case 'claude': return installClaudeProject(projectDir);
-    case 'copilot': return installCopilotProject(projectDir);
+    case 'github':
+    case 'copilot': return installGithubProject(projectDir);
     default:
       console.log(`  [SKIP] No adapter for: ${agent}`);
       return false;

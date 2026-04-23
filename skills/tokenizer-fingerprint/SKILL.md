@@ -27,21 +27,29 @@ Scan project once → cache summary in `.tokenizer/fingerprint.md`. Coding agent
 
 ## Integration
 
-Add to project's `CLAUDE.md` to auto-load:
+**Claude Code** — add to `CLAUDE.md`:
 
 ```markdown
 ## Codebase
 @.tokenizer/fingerprint.md
 ```
 
-Claude reads referenced files on demand — fingerprint loads only when relevant.
+**GitHub Copilot / other agents** — inject inline into `.github/copilot-instructions.md`:
+
+```bash
+node {{TOKENIZER_ROOT}}/core/cli.js fingerprint --wire
+```
+
+This writes the fingerprint content between `<!-- tokenizer:fingerprint:start/end -->` markers. Re-run after structural changes. Use `--unwire` to remove.
+
+Or manually paste `.tokenizer/fingerprint.md` content into any agent instruction file.
 
 ## Process
 
 1. Run `node {{TOKENIZER_ROOT}}/core/cli.js fingerprint [dir]`
-2. If `cached` returned → nothing to do, cache is valid
+2. If `cached` → nothing to do, cache valid
 3. If `generated` → new fingerprint written, report token cost
-4. Optionally advise user to reference `@.tokenizer/fingerprint.md` in CLAUDE.md
+4. Wire into agent instruction files (once) via `--wire` flag or manually
 
 ## When to use
 

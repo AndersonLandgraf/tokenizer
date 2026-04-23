@@ -42,9 +42,11 @@ const AGENT_PATTERNS = [
   { agent: 'codex', pattern: 'AGENTS.md', desc: 'Codex/agents root file' },
   { agent: 'codex', pattern: '**/AGENTS.md', desc: 'Codex scoped agents file', recursive: true },
 
-  // ── GitHub Copilot ──
+  // ── GitHub agents (.github/*.md — copilot-instructions.md, agents.md, AGENTS.md, etc.) ──
   { agent: 'copilot', pattern: '.github/copilot-instructions.md', desc: 'Copilot instructions' },
-  { agent: 'copilot', pattern: '.github/copilot/*.md', desc: 'Copilot instruction files' },
+  { agent: 'copilot', pattern: '.github/agents.md', desc: 'GitHub agent instructions' },
+  { agent: 'copilot', pattern: '.github/AGENTS.md', desc: 'GitHub agent instructions' },
+  { agent: 'copilot', pattern: '.github/copilot/*.md', desc: 'Copilot prompt files' },
 
   // ── Gemini ──
   { agent: 'gemini', pattern: 'GEMINI.md', desc: 'Gemini root instructions' },

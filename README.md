@@ -1,8 +1,8 @@
 # tokenizer
 
-Full-stack token optimizer for Claude Code. Compresses inputs, outputs, and workflow overhead.
+Full-stack token optimizer for AI coding agents. Compresses inputs, outputs, and workflow overhead — works with Claude Code, GitHub Copilot, Cursor, Windsurf, and any agent that reads instruction files.
 
-Unlike tools that only make the model "talk terse," tokenizer optimizes the **entire pipeline**: what the model reads (CLAUDE.md, skills, MCP schemas, memory), what it writes (output), and helps you find where tokens are wasted.
+Unlike tools that only make the model "talk terse," tokenizer optimizes the **entire pipeline**: what the agent reads (instruction files, MCP schemas, memory), what it writes (output), and helps you find where tokens are wasted.
 
 ## What it does
 
@@ -143,7 +143,7 @@ Remove the hook entries from `~/.claude/settings.json`, delete `.claude/rules/to
 
 ## Setup — GitHub Copilot
 
-Copilot doesn't support runtime hooks, so integration is **instructions-only**: a single file that Copilot reads as context.
+Two layers: **instructions file** (terse mode + rules) + **MCP** (audit tooling via VS Code ≥ 1.98).
 
 ### Step 1 — Create the instructions file
 
@@ -164,29 +164,49 @@ If you already have a `.github/copilot-instructions.md`, append the tokenizer sn
 cat <tokenizer-path>/adapters/copilot/copilot-snippet.txt >> .github/copilot-instructions.md
 ```
 
-### Step 3 — Enable in VS Code (if not already)
+### Step 3 — MCP audit server (VS Code ≥ 1.98, optional)
+
+Copilot supports MCP via `.vscode/mcp.json`. Add the tokenizer audit server to get `/tokenizer-audit` and `/tokenizer-fingerprint` tooling inside Copilot Chat:
+
+```json
+{
+  "servers": {
+    "tokenizer": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["<tokenizer-path>/core/mcp-server.js"]
+    }
+  }
+}
+```
+
+Reload VS Code after saving. Verify with `/mcp list` in Copilot Chat — `tokenizer` should appear.
+
+### Step 4 — Enable instruction files in VS Code (if not already)
 
 Open VS Code settings (`Ctrl+,`), search for `copilot instruction files`, ensure **GitHub › Copilot › Chat › Code Generation: Use Instruction Files** is checked.
 
-### Step 4 — Verify
+### Step 5 — Verify
 
-Open Copilot Chat in your project and ask a simple question (eg: "explain this function"). Responses should come back terse — fragments, abbreviations, no trailing summary.
+Open Copilot Chat and ask a simple question (eg: "explain this function"). Responses should come back terse — fragments, abbreviations, no trailing summary.
 
-### Limitations (Copilot)
+### Notes (Copilot)
 
-- No per-turn reinforcement — Copilot may drift back to verbose over long sessions. Re-prompt with "stay terse" if it does.
-- No dynamic mode switching (lite/full/ultra). Copilot runs whatever the instructions file specifies. Edit `.github/copilot-instructions.md` to change intensity.
-- Skills and `/tokenizer-compress`/`/tokenizer-audit` slash commands are **Claude-only**. For Copilot, use terse mode only.
+- Terse mode is always-on from the instructions file. Change intensity by editing `.github/copilot-instructions.md`.
+- No dynamic mode switching (lite/full/ultra) without MCP — the instructions file sets the baseline.
+- If Copilot drifts verbose over long sessions, re-prompt: "stay terse, no filler."
 
 ### Uninstall (Copilot)
 
-Delete `.github/copilot-instructions.md` (or remove the tokenizer section if you merged it with other instructions).
+Delete `.github/copilot-instructions.md` (or remove the tokenizer section if you merged it). Remove the `tokenizer` entry from `.vscode/mcp.json` if added.
 
 ---
 
 ## Usage
 
-### Terse Mode (Claude)
+### Terse Mode
+
+**Claude Code** — slash commands:
 
 ```
 /tokenizer           → activate full terse mode (default)
@@ -196,25 +216,44 @@ Delete `.github/copilot-instructions.md` (or remove the tokenizer section if you
 /tokenizer off       → back to normal
 ```
 
-Natural language also works:
-- "activate tokenizer" / "tokenizer on"
-- "tokenizer ultra"
-- "stop tokenizer" / "normal mode"
+Natural language also works: "activate tokenizer", "tokenizer ultra", "stop tokenizer".
 
-### Compress Files (Claude)
+**GitHub Copilot / other agents** — edit `.github/copilot-instructions.md` to set intensity, or use the MCP server to toggle dynamically (VS Code ≥ 1.98).
 
+### Compress Files
+
+Works on any agent instruction file — CLAUDE.md, copilot-instructions.md, AGENTS.md, .cursorrules, etc.
+
+**Claude Code:**
 ```
-/tokenizer-compress ./CLAUDE.md            → compress single file
-/tokenizer-compress --all                  → compress all agent-config files in project
-/tokenizer-compress --dry-run ./CLAUDE.md  → preview savings, no write
-/tokenizer-compress --restore ./CLAUDE.md  → restore from .original.md backup
+/tokenizer-compress ./CLAUDE.md                         → compress single file
+/tokenizer-compress --all                               → compress all agent-config files in project
+/tokenizer-compress --dry-run ./CLAUDE.md               → preview savings, no write
+/tokenizer-compress --restore ./CLAUDE.md               → restore from .original.md backup
 ```
 
-### Audit Token Usage (Claude)
+**Any agent (CLI):**
+```bash
+node <tokenizer-path>/core/cli.js compress ./CLAUDE.md
+node <tokenizer-path>/core/cli.js compress --all
+node <tokenizer-path>/core/cli.js compress --dry-run .github/copilot-instructions.md
+```
 
+### Audit Token Usage
+
+**Claude Code:**
 ```
 /tokenizer-audit     → scan project: agent configs + MCP schema load
 /tokenizer-mcp       → MCP server audit only
+```
+
+**GitHub Copilot (MCP):**  
+Available as MCP tools when the tokenizer MCP server is configured. Ask Copilot Chat: "run tokenizer audit".
+
+**CLI (any agent):**
+```bash
+node <tokenizer-path>/core/cli.js audit
+node <tokenizer-path>/core/cli.js mcp
 ```
 
 Output example:
@@ -222,9 +261,12 @@ Output example:
 ```
 tokenizer audit
 ================
-claude:
+Claude:
   ./CLAUDE.md                    ~320 tokens  OK
   ./src/api/CLAUDE.md            ~2100 tokens BLOATED
+
+Copilot:
+  .github/copilot-instructions.md  ~450 tokens  OK
 
 MCP servers:
   github                         ~9100 tokens  HEAVY  [user]
@@ -238,22 +280,39 @@ Recommendations:
 - MCP server "github" loads ~9100 tokens — disable if not used often
 ```
 
-### Fingerprint Cache (Claude)
+### Fingerprint Cache
 
 Scan repo once → cache compact summary so agents don't re-explore the tree every session.
 
+**Claude Code:**
 ```
 /tokenizer-fingerprint             → generate or refresh cache
 /tokenizer-fingerprint --force     → force regeneration
 /tokenizer-fingerprint --dry-run   → preview without writing
 ```
 
-Output lands at `.tokenizer/fingerprint.md`. Reference it from CLAUDE.md so Claude loads it on demand:
+**CLI (any agent):**
+```bash
+node <tokenizer-path>/core/cli.js fingerprint
+node <tokenizer-path>/core/cli.js fingerprint --force
+```
 
+Output lands at `.tokenizer/fingerprint.md`. Reference it from your agent's instruction file:
+
+**Claude Code** (`CLAUDE.md`):
 ```markdown
 ## Codebase
 @.tokenizer/fingerprint.md
 ```
+
+**GitHub Copilot** (`.github/copilot-instructions.md`):
+```markdown
+<!-- tokenizer:fingerprint:start -->
+[Fingerprint content is injected here by `node core/cli.js fingerprint --wire`]
+<!-- tokenizer:fingerprint:end -->
+```
+
+Or run `node <tokenizer-path>/core/cli.js fingerprint --wire` to inject automatically into both files.
 
 Includes: languages, package manager, entry points, npm scripts, top 20 runtime deps, config files (tsconfig, eslint, vite, docker, CI), directory tree summary. Invalidation is automatic — SHA of file tree + mtimes; rerunning is a no-op if nothing changed.
 
@@ -305,29 +364,29 @@ Code is **never** compressed. It stays exactly correct in all modes.
 ## How It Saves Tokens
 
 **Input side:**
-- CLAUDE.md compression removes ~40-60% of tokens while preserving all instructions
-- Audit identifies bloated config files you didn't know were costing tokens every request
-- Scoped CLAUDE.md recommendations prevent loading irrelevant rules
+- Instruction file compression removes ~40-60% of tokens while preserving all rules (CLAUDE.md, copilot-instructions.md, .cursorrules, etc.)
+- Audit identifies bloated config files costing tokens every request
+- Fingerprint cache prevents agents from re-exploring the file tree — one-time scan, reused every session
 
 **Output side:**
 - Terse mode eliminates filler words, pleasantries, hedging, redundant summaries
-- Context-aware: code stays clean, only prose is compressed
-- Per-turn reinforcement prevents the model from drifting back to verbose
+- Context-aware: code stays exact, only prose is compressed
+- Per-turn reinforcement (Claude hooks) or always-on instruction (Copilot) prevents drift back to verbose
 
-**Workflow:**
-- Auto-compact nudge prevents paying for heavy context when it could be compressed
-- Audit reveals hidden token costs in MCP tool schemas and unused skills
+**MCP:**
+- Audit reveals hidden token costs in MCP tool schemas — each server loads 350–9100 tokens per request
+- Disabling unused MCP servers is the highest-leverage optimization (schemas can't be compressed, only pruned)
 
 ---
 
 ## Troubleshooting
 
-**Claude — terse mode not activating**
-- Check `~/.claude/settings.json` has the hooks registered and paths are absolute
-- Run `node <tokenizer-path>/hooks/tokenizer-activate.js` directly to see if it errors
+**Claude Code — terse mode not activating**
+- Check `~/.claude/settings.json` has hooks registered with absolute paths
+- Run `node <tokenizer-path>/hooks/tokenizer-activate.js` directly to check for errors
 - Verify Node.js ≥ 18: `node --version`
 
-**Claude — `/tokenizer` command not found**
+**Claude Code — `/tokenizer` command not found**
 - Plugin not installed, or command files not in `~/.claude/commands/`
 - Re-run `claude plugins install .` from the tokenizer directory
 
